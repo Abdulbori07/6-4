@@ -1,4 +1,9 @@
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
+from rest_framework import serializers
+
+
+class GoogleAuthSerializer(serializers.Serializer):
+    code = serializers.CharField(trim_whitespace=True, allow_blank=False)
 
 
 class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):

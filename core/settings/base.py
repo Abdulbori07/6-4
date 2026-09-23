@@ -2,12 +2,16 @@ import os
 from datetime import timedelta
 from pathlib import Path
 from django.utils.translation import gettext_lazy as _
-from dotenv import load_dotenv
 from core.settings.jazzmin import JAZZMIN_SETTINGS
 
-load_dotenv()
-
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
+from dotenv import load_dotenv
+
+load_dotenv(BASE_DIR / '.env')
+
+GOOGLE_CLIENT_ID = os.getenv('GOOGLE_CLIENT_ID', '')
+GOOGLE_CLIENT_SECRET = os.getenv('GOOGLE_CLIENT_SECRET', '')
+GOOGLE_REDIRECT_URI = os.getenv('GOOGLE_REDIRECT_URI', '')
 
 SECRET_KEY = os.environ.get('SECRET_KEY')
 

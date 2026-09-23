@@ -1,11 +1,57 @@
 from rest_framework import status
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenObtainPairView
 from .permissions import IsAdminOnly, IsUserOnly
-from .serializers import CustomTokenObtainPairSerializer
+from .serializers import CustomTokenObtainPairSerializer, GoogleAuthSerializer
+from .services import get_google_access_token, get_google_user_info
+from django.contrib.auth import get_user_model
+from django.utils.text import slugify
+
+
+class GoogleAuthView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        serializer = GoogleAuthSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        access_token = get_google_access_token(serializer.validated_data['code'])
+        profile = get_google_user_info(access_token)
+        User = get_user_model()
+        email = profile['email'].strip().lower()
+        user = User.objects.filter(email__iexact=email).first()
+        is_new_user = user is None
+
+        if is_new_user:
+            username_base = slugify(email.split('@', 1)[0]) or 'user'
+            username = username_base
+            suffix = 1
+            while User.objects.filter(username=username).exists():
+                username = f'{username_base}{suffix}'
+                suffix += 1
+            user = User(email=email, username=username)
+            user.set_unusable_password()
+            user.first_name = profile.get('name', '')[:150]
+            user.save()
+
+        refresh = RefreshToken.for_user(user)
+        refresh['email'] = user.email
+        refresh['role'] = user.role
+        return Response({
+            'user': {
+                'id': user.id,
+                'email': user.email,
+                'username': user.username,
+                'name': profile.get('name') or user.get_full_name(),
+                'role': user.role,
+            },
+            'is_new_user': is_new_user,
+            'access': str(refresh.access_token),
+            'refresh': str(refresh),
+        }, status=status.HTTP_200_OK)
 
 
 class CustomTokenObtainPairView(TokenObtainPairView):
